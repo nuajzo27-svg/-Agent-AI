@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenAI, Type, Modality, Chat } from "@google/genai";
 import { AIAgentIdea, IdeaExpansion, CodeScaffold } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -259,4 +259,50 @@ export const generateCodeScaffold = async (idea: AIAgentIdea): Promise<CodeScaff
         console.error(`Error generating code scaffold for "${idea.name}":`, error);
         throw new Error("Failed to generate code scaffold from Gemini API.");
     }
+};
+
+export const createChatWithContext = (idea: AIAgentIdea): Chat => {
+    let context = `You are an expert AI project strategist and software architect, acting as a collaborative partner. Your goal is to help the user refine and iterate on their existing AI Agent project idea. You are now in a conversation about the following project:
+
+--- PROJECT CONTEXT ---
+Project Name: ${idea.name}
+Description: ${idea.description}
+Target Audience: ${idea.targetAudience}
+Monetization Strategy: ${idea.monetization}
+`;
+
+    if (idea.expansion) {
+        context += `
+## Project Plan
+### MVP Features
+${idea.expansion.mvpFeatures.map(f => `- ${f}`).join('\n')}
+
+### Tech Stack
+${idea.expansion.techStack.map(t => `- ${t}`).join('\n')}
+
+### Potential Challenges
+${idea.expansion.potentialChallenges.map(c => `- ${c}`).join('\n')}
+`;
+    }
+
+    if (idea.codeScaffold && idea.codeScaffold.length > 0) {
+        context += `
+## Code Scaffold
+${idea.codeScaffold.map(file => `### \`${file.fileName}\`\n\`\`\`python\n${file.code}\n\`\`\``).join('\n\n')}
+`;
+    }
+
+    context += `
+--- END CONTEXT ---
+
+Engage in a helpful conversation. Answer the user's questions, provide suggestions, and help them modify any part of the project plan. Be ready to suggest alternative names, modify features, discuss the tech stack, or even rewrite code snippets. Start the conversation by introducing yourself briefly and confirming you understand the project context. Keep your responses concise and helpful.`;
+
+    const chat = ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+            systemInstruction: context,
+        },
+    });
+
+    return chat;
 };

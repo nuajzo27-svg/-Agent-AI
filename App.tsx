@@ -1,10 +1,13 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { AIAgentIdea } from './types';
-import { generateAgentIdeas, addImagesToIdeas, expandAgentIdea, generateAudioPitch, generateCodeScaffold } from './services/geminiService';
+import { AIAgentIdea, ChatMessage } from './types';
+import { generateAgentIdeas, addImagesToIdeas, expandAgentIdea, generateAudioPitch, generateCodeScaffold, createChatWithContext } from './services/geminiService';
 import { IdeaCard } from './components/IdeaCard';
 import { Loader } from './components/Loader';
 import { BrainCircuitIcon } from './components/icons/BrainCircuitIcon';
+import { ChatModal } from './components/ChatModal';
+import { Chat } from '@google/genai';
+
 
 const IDEAS_STORAGE_KEY = 'aiAgentIdeas';
 
@@ -50,6 +53,12 @@ const App: React.FC = () => {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'favorites'>('all');
+
+  // Chat state
+  const [activeChatIdea, setActiveChatIdea] = useState<AIAgentIdea | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
+  const chatSession = useRef<Chat | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -291,6 +300,42 @@ const App: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }, []);
+
+  // --- Chat Handlers ---
+  const handleStartChat = useCallback((idea: AIAgentIdea) => {
+    chatSession.current = createChatWithContext(idea);
+    setActiveChatIdea(idea);
+    setChatMessages([
+        {
+            role: 'model',
+            content: 'مرحباً! لقد اطلعت على تفاصيل مشروعك. كيف يمكنني مساعدتك في تحسينه اليوم؟'
+        }
+    ]);
+  }, []);
+
+  const handleSendChatMessage = useCallback(async (message: string) => {
+      if (!chatSession.current || isChatLoading) return;
+
+      const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: message }];
+      setChatMessages(newMessages);
+      setIsChatLoading(true);
+
+      try {
+          const response = await chatSession.current.sendMessage({ message });
+          setChatMessages([...newMessages, { role: 'model', content: response.text }]);
+      } catch (err) {
+          console.error("Chat error:", err);
+          setChatMessages([...newMessages, { role: 'model', content: 'عذراً، حدث خطأ أثناء معالجة طلبك.' }]);
+      } finally {
+          setIsChatLoading(false);
+      }
+  }, [chatMessages, isChatLoading]);
+
+  const handleCloseChat = useCallback(() => {
+      setActiveChatIdea(null);
+      setChatMessages([]);
+      chatSession.current = null;
+  }, []);
   
   const filteredIdeas = ideas?.filter(idea => filter === 'all' || idea.isFavorite);
 
@@ -380,17 +425,18 @@ const App: React.FC = () => {
                         if (filter === 'favorites' && !idea.isFavorite) return null;
                         return (
                             <IdeaCard 
-                            key={index} 
-                            idea={idea} 
-                            onExpand={() => handleExpandIdea(index)}
-                            isExpanding={expandingIdeaIndex === index}
-                            onPlayAudio={() => handlePlayAudio(index)}
-                            isGeneratingAudio={audioLoadingIndex === index}
-                            isPlayingAudio={playingIndex === index}
-                            onGenerateCode={() => handleGenerateCodeScaffold(index)}
-                            isGeneratingCode={generatingCodeIndex === index}
-                            onExport={() => handleExportIdea(idea)}
-                            onToggleFavorite={() => handleToggleFavorite(index)}
+                              key={index} 
+                              idea={idea} 
+                              onExpand={() => handleExpandIdea(index)}
+                              isExpanding={expandingIdeaIndex === index}
+                              onPlayAudio={() => handlePlayAudio(index)}
+                              isGeneratingAudio={audioLoadingIndex === index}
+                              isPlayingAudio={playingIndex === index}
+                              onGenerateCode={() => handleGenerateCodeScaffold(index)}
+                              isGeneratingCode={generatingCodeIndex === index}
+                              onExport={() => handleExportIdea(idea)}
+                              onToggleFavorite={() => handleToggleFavorite(index)}
+                              onStartChat={() => handleStartChat(idea)}
                             />
                         )
                     })}
@@ -411,6 +457,15 @@ const App: React.FC = () => {
         </footer>
 
       </div>
+       {activeChatIdea && (
+        <ChatModal
+            ideaName={activeChatIdea.name}
+            messages={chatMessages}
+            onSendMessage={handleSendChatMessage}
+            onClose={handleCloseChat}
+            isLoading={isChatLoading}
+        />
+       )}
     </div>
   );
 };

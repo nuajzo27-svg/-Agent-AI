@@ -21,3 +21,8 @@ export interface AIAgentIdea {
   codeScaffold?: CodeScaffold[];
   isFavorite?: boolean;
 }
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+}

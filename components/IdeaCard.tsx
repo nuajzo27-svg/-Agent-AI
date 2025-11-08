@@ -12,6 +12,7 @@ import { CodeIcon } from './icons/CodeIcon';
 import { CodeBlock } from './CodeBlock';
 import { ExportIcon } from './icons/ExportIcon';
 import { StarIcon } from './icons/StarIcon';
+import { ChatIcon } from './icons/ChatIcon';
 
 interface IdeaCardProps {
   idea: AIAgentIdea;
@@ -24,6 +25,7 @@ interface IdeaCardProps {
   isGeneratingCode: boolean;
   onExport: () => void;
   onToggleFavorite: () => void;
+  onStartChat: () => void;
 }
 
 export const IdeaCard: React.FC<IdeaCardProps> = ({ 
@@ -37,6 +39,7 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
   isGeneratingCode,
   onExport,
   onToggleFavorite,
+  onStartChat,
 }) => {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-lg flex flex-col transform transition-all duration-300 hover:scale-[1.02] hover:border-sky-500 overflow-hidden">
@@ -147,6 +150,15 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
                     {isGeneratingCode ? '...جاري إنشاء الكود' : 'إنشاء الهيكل البرمجي'}
                   </button>
                 )}
+              </div>
+               <div className="mt-4 pt-4 border-t border-slate-700">
+                <button
+                    onClick={onStartChat}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-800/50 text-indigo-300 font-semibold rounded-lg hover:bg-indigo-700/70 hover:text-indigo-200 disabled:opacity-50 disabled:cursor-wait transition-colors duration-300"
+                >
+                    <ChatIcon className="h-5 w-5" />
+                    {'ناقش وحسّن هذه الفكرة'}
+                </button>
               </div>
 
             </div>
